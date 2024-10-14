@@ -1,0 +1,10 @@
+env: dev # production
+db:
+  name: postgres
+  host: postgres
+  username: postgres
+  password: postgres
+  port: 5432
+  timezone: Asia/Jakarta
+  max_connections: 10
+  min_connections: 5
