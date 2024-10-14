@@ -1,7 +1,12 @@
 package main
 
-import "github.com/Alturino/url-shortener/cmd"
+import (
+	"github.com/Alturino/url-shortener/pkg/config"
+	"github.com/Alturino/url-shortener/pkg/log"
+)
 
 func main() {
-	cmd.Start()
+	log.InitLogger()
+
+	config.InitConfig("application")
 }
