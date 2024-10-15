@@ -1,14 +1,10 @@
 package main
 
-import (
-	"github.com/Alturino/url-shortener/pkg/config"
-	"github.com/Alturino/url-shortener/pkg/log"
-	"github.com/Alturino/url-shortener/pkg/postgres"
-)
+import "github.com/Alturino/url-shortener/pkg"
 
 func main() {
-	log.InitLogger()
+	pkg.InitLogger()
 
-	appConfig := config.InitConfig("application")
-	postgreClient := postgres.NewPostgreSQLClient(appConfig.MigrationPath, appConfig.Database)
+	appConfig := pkg.InitConfig("application")
+	pkg.NewPostgreSQLClient(appConfig.MigrationPath, appConfig.Database)
 }
