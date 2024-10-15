@@ -3,7 +3,7 @@ application:
   port: 3000
 db:
   name: postgres
-  host: localhost # host
+  host: postgres
   username: postgres
   password: postgres
   port: 5432
