@@ -19,6 +19,7 @@ type Database struct {
 	Password       string `mapstructure:"password"`
 	Port           uint16 `mapstructure:"port"`
 	Username       string `mapstructure:"username"`
+	MigrationPath  string `mapstructure:"migration_path"`
 	MaxConnections byte   `mapstructure:"max_connections"`
 	MinConnections byte   `mapstructure:"min_connections"`
 	TimeZone       string `mapstructure:"timezone"`

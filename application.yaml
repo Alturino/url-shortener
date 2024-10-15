@@ -1,10 +1,13 @@
 env: dev # production
+application:
+  port: 3000
 db:
   name: postgres
-  host: postgres
+  host: localhost # host
   username: postgres
   password: postgres
   port: 5432
   timezone: Asia/Jakarta
+  migration_path: file://migrations/
   max_connections: 10
   min_connections: 5
