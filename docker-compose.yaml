@@ -8,24 +8,14 @@ services:
     env_file:
       - .env
     depends_on:
-      # - redis
+      postgres:
+        condition: service_healthy
+    networks:
       - postgres
     links:
-      # - redis
       - postgres
     ports:
       - ${APPLICATION_PORT}:${APPLICATION_PORT}
-  # redis:
-  #   container_name: redis
-  #   image: "redis:7.2.4-alpine3.19"
-  #   restart: always
-  #   command: redis-server /usr/local/etc/redis/redis.conf
-  #   volumes:
-  #     - ./redis.conf:/usr/local/etc/redis/redis.conf
-  #   env_file:
-  #     - .env
-  #   ports:
-  #     - ${REDIS_PORT}:${REDIS_PORT}
   postgres:
     container_name: postgres
     image: "postgres:16.1-alpine3.19"
@@ -34,8 +24,17 @@ services:
       - .env
     ports:
       - ${POSTGRES_PORT}:${POSTGRES_PORT}
-    volumes:
-      - postgresql-volume:/var/lib/postgresql/data
+    networks:
+      - postgres
+    healthcheck:
+      test:
+        ["CMD", "pg_isready", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 2m
+      retries: 10
+      start_period: 40s
 volumes:
-  postgresql-volume:
-  # redis-volume:
+  postgres:
+networks:
+  postgres:
+    name: postgres
