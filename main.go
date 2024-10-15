@@ -1,10 +1,18 @@
 package main
 
-import "github.com/Alturino/url-shortener/pkg"
+import (
+	"context"
+
+	"github.com/Alturino/url-shortener/internal/repository"
+	"github.com/Alturino/url-shortener/pkg"
+)
 
 func main() {
 	pkg.InitLogger()
 
 	appConfig := pkg.InitConfig("application")
-	pkg.NewPostgreSQLClient(appConfig.MigrationPath, appConfig.Database)
+	db := pkg.NewPostgreSQLClient(appConfig.MigrationPath, appConfig.Database)
+
+	queries := repository.New(db)
+	queries.GetAllUrls(context.Background())
 }
