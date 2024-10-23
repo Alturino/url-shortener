@@ -5,17 +5,16 @@
 package repository
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 type Url struct {
-	ID           uuid.UUID
-	Url          string
-	ShortUrl     string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	VisitedCount sql.NullInt32
+	ID           uuid.UUID `json:"id"`
+	Url          string    `json:"url"`
+	ShortUrl     string    `json:"short_url"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	VisitedCount int32     `json:"visited_count"`
 }

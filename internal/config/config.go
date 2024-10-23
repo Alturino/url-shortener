@@ -1,14 +1,23 @@
-package pkg
+package config
 
 import (
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
+
+	"github.com/Alturino/url-shortener/internal/log"
 )
 
 type Config struct {
-	Env      string `mapstructure:"env"`
-	Database `mapstructure:"db"`
+	Env         string `mapstructure:"env"`
+	Database    `mapstructure:"db"`
+	Application `mapstructure:"application"`
+}
+
+type Application struct {
+	Host string `mapstructure:"host"`
+	Port int    `mapstructure:"port"`
 }
 
 type Database struct {
@@ -23,20 +32,20 @@ type Database struct {
 	MinConnections byte   `mapstructure:"min_connections"`
 }
 
-func InitConfig(filename string) Config {
+func InitConfig(filename string, logger *zerolog.Logger) Config {
 	startTime := time.Now()
 
 	config := Config{}
-	Logger.Info().
-		Str(KeyProcess, "InitConfig").
-		Time(KeyStartTime, startTime).
+	logger.Info().
+		Str(log.KeyProcess, "InitConfig").
+		Time(log.KeyStartTime, startTime).
 		Msg("starting InitConfig")
 	defer func() {
-		Logger.Info().
-			Str(KeyProcess, "InitConfig").
-			Dur(KeyProcessingTime, time.Since(startTime)).
-			Time(KeyEndTime, time.Now()).
-			Time(KeyStartTime, startTime).
+		logger.Info().
+			Str(log.KeyProcess, "InitConfig").
+			Dur(log.KeyProcessingTime, time.Since(startTime)).
+			Time(log.KeyEndTime, time.Now()).
+			Time(log.KeyStartTime, startTime).
 			Interface("config", config).
 			Msg("finished InitConfig")
 	}()
@@ -44,21 +53,22 @@ func InitConfig(filename string) Config {
 	viper.SetConfigName("application")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")
+	viper.AutomaticEnv()
 
 	err := viper.ReadInConfig()
 	if err != nil {
-		Logger.Err(err).
+		logger.Err(err).
 			Str("filename", filename).
-			Str(KeyProcess, "InitConfig").
-			Dur(KeyProcessingTime, time.Since(startTime)).
+			Str(log.KeyProcess, "InitConfig").
+			Dur(log.KeyProcessingTime, time.Since(startTime)).
 			Msgf("error when reading config with error=%s", err.Error())
 	}
 
 	err = viper.Unmarshal(&config)
 	if err != nil {
-		Logger.Err(err).
-			Str(KeyProcess, "InitConfig").
-			Dur(KeyProcessingTime, time.Since(startTime)).
+		logger.Err(err).
+			Str(log.KeyProcess, "InitConfig").
+			Dur(log.KeyProcessingTime, time.Since(startTime)).
 			Msgf("error unmarshaling config with error=%s", err.Error())
 	}
 

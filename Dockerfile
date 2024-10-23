@@ -9,7 +9,6 @@ COPY ["go.mod", "go.sum", "./"]
 RUN go mod download
 
 COPY main.go  ./
-COPY ./pkg/ ./pkg/
 COPY ./internal/ ./internal/
 
 RUN go build main.go

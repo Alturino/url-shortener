@@ -1,21 +1,28 @@
-package pkg
+package log
 
 import (
 	"os"
 	"time"
 
+	"github.com/natefinch/lumberjack"
 	"github.com/rs/zerolog"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const (
+	KeyEndTime        = "endTime"
+	KeyHashcode       = "hashcode"
+	KeyID             = "id"
 	KeyProcess        = "process"
 	KeyProcessingTime = "processingTime"
+	KeyRequestBody    = "requestBody"
+	KeyRequestHeader  = "requestHeader"
+	KeyRequestIp      = "requesterIP"
+	KeyRequestMethod  = "requestMethod"
+	KeyRequestURI     = "requestURI"
+	KeyRequestURL     = "requestURL"
+	KeyShortUrl       = "shortUrl"
 	KeyStartTime      = "startTime"
-	KeyEndTime        = "endTime"
 )
-
-var Logger *zerolog.Logger
 
 func InitLogger() *zerolog.Logger {
 	startTime := time.Now()
@@ -35,7 +42,7 @@ func InitLogger() *zerolog.Logger {
 		Compress:   true,
 	}
 	consoleWriter := zerolog.ConsoleWriter{
-		Out:          os.Stderr,
+		Out:          os.Stdout,
 		TimeFormat:   time.RFC3339Nano,
 		NoColor:      false,
 		TimeLocation: time.UTC,
@@ -51,13 +58,11 @@ func InitLogger() *zerolog.Logger {
 		Int("uid", os.Getuid()).
 		Logger()
 
-	Logger = &logger
-
-	Logger.Info().
+	logger.Info().
 		Str(KeyProcess, "InitLogger").
 		Time(KeyStartTime, startTime).
 		Time(KeyEndTime, time.Now()).
-		Dur("duration", time.Since(startTime)).
+		Dur(KeyProcessingTime, time.Since(startTime)).
 		Msg("finish initiating logging")
 
 	return &logger
