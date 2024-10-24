@@ -10,6 +10,7 @@ import (
 	"github.com/Alturino/url-shortener/internal/controller"
 	"github.com/Alturino/url-shortener/internal/database"
 	"github.com/Alturino/url-shortener/internal/log"
+	"github.com/Alturino/url-shortener/internal/middleware"
 	"github.com/Alturino/url-shortener/internal/repository"
 	"github.com/Alturino/url-shortener/internal/service"
 )
@@ -62,11 +63,12 @@ func main() {
 		Msg("initialized urlService")
 
 	mux := http.NewServeMux()
-	controller.AttachUrlController(mux, urlService, logger)
+	middlewares := middleware.CreateStack(middleware.Logging)
+	controller.AttachUrlController(mux, urlService)
 
 	server := http.Server{
 		Addr:    fmt.Sprintf("%s:%d", appConfig.Application.Host, appConfig.Application.Port),
-		Handler: mux,
+		Handler: middlewares(mux),
 	}
 
 	logger.Info().
