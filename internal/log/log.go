@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"os"
 	"sync"
 	"time"
@@ -31,6 +32,26 @@ const (
 	KeyShortUrl              = "shortUrl"
 	KeyStartTime             = "startTime"
 )
+
+type hashcode struct{}
+
+func HashcodeFromContext(c context.Context) string {
+	return c.Value(hashcode{}).(string)
+}
+
+func AttachHashcodeToContext(c context.Context, h string) context.Context {
+	return context.WithValue(c, hashcode{}, h)
+}
+
+type requestStartTime struct{}
+
+func RequestStartTimeFromContext(c context.Context) string {
+	return c.Value(requestStartTime{}).(string)
+}
+
+func AttachRequestStartTimeToContext(c context.Context, time time.Time) context.Context {
+	return context.WithValue(c, requestStartTime{}, time)
+}
 
 var (
 	once   sync.Once

@@ -18,7 +18,7 @@ func WriteJsonResponse(
 	statusCode int,
 ) {
 	logger := zerolog.Ctx(c)
-	hashcode := c.Value(log.KeyHashcode).(string)
+	hashcode := log.HashcodeFromContext(c)
 	jsonEncoder := json.NewEncoder(w)
 
 	w.Header().Add("Content-Type", "application/json")
