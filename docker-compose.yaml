@@ -1,24 +1,32 @@
 services:
   url-shortener:
     container_name: url-shortener
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
+    healthcheck:
+      test: ["CMD", "curl", "url-shortener:8080"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
     restart: always
-    env_file:
-      - .env
+    env_file: .env
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - postgres
-    links:
-      - postgres
+      - grafana
+    logging:
+      driver: loki
+      options:
+        loki-url: http://localhost:3100/loki/api/v1/push
+        loki-retries: 5
+        loki-batch-size: 1000
     ports:
       - ${APPLICATION_PORT}:${APPLICATION_PORT}
   postgres:
     container_name: postgres
-    image: "postgres:16.1-alpine3.19"
+    image: postgres:16.1-alpine3.19
     restart: always
     env_file:
       - .env
@@ -26,6 +34,7 @@ services:
       - ${POSTGRES_PORT}:${POSTGRES_PORT}
     networks:
       - postgres
+      - grafana
     healthcheck:
       test:
         ["CMD", "pg_isready", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}"]
@@ -33,8 +42,112 @@ services:
       timeout: 2m
       retries: 10
       start_period: 40s
+  grafana:
+    container_name: grafana
+    image: grafana/grafana:11.3.0-ubuntu
+    volumes:
+      - ./infra/monitoring/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/default.yaml
+      - ./infra/monitoring/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/default.yaml
+      - ./infra/monitoring/node-exporter.json:/var/lib/grafana/dashboards/node-exporter.json
+    depends_on:
+      - postgres
+      - url-shortener
+      - promtail
+      - prometheus
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    ports:
+      - "3001:3000"
+    networks:
+      - grafana
+      - postgres
+      - url-shortener
+  loki:
+    container_name: loki
+    image: grafana/loki:2.9.2
+    ports:
+      - 3100:3100
+    command: ["-config.file=/etc/loki/loki.yaml", "-config.expand-env=true"]
+    volumes:
+      - ./infra/monitoring/loki.yaml:/etc/loki/loki.yaml
+    networks:
+      - grafana
+    env_file: .env
+  promtail:
+    container_name: promtail
+    image: grafana/promtail:3.1.2
+    volumes:
+      - ./infra/monitoring/promtail.yaml:/etc/promtail/promtail.yml
+      - promtail:/var/log
+      - /var/run/docker.sock:/var/run/docker.sock
+    command:
+      ["-config.file=/etc/promtail/promtail.yml", "-config.expand-env=true"]
+    depends_on:
+      - loki
+    networks:
+      - grafana
+  prometheus:
+    image: prom/prometheus:v2.51.1
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus.yaml
+      - --enable-feature=exemplar-storage
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/etc/prometheus/console_libraries
+      - --web.console.templates=/etc/prometheus/consoles
+      - --web.enable-lifecycle
+      - --web.enable-remote-write-receiver
+    volumes:
+      - ./infra/monitoring/prometheus.yaml:/etc/prometheus.yaml
+      - prometheus:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - grafana
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: node-exporter
+    restart: unless-stopped
+    ports:
+      - 9100:9100
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - "--path.procfs=/host/proc"
+      - "--path.sysfs=/host/sys"
+      - "--path.rootfs=/rootfs"
+      - "--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)"
+    networks:
+      - grafana
+  otel-collector:
+    container_name: otel-collector
+    image: otel/opentelemetry-collector:0.95.0
+    command: ["--config=/etc/otel-collector-config.yml"]
+    volumes:
+      - ./infra/monitoring/otel-collector.yaml:/etc/otel-collector-config.yml
+    ports:
+      - "8888:8888"
+      - "8889:8889"
+      - "13133:13133"
+      - "4317:4317"
+    networks:
+      - grafana
 volumes:
   postgres:
+    name: postgres
+  promtail:
+    name: promtail
+  prometheus:
+    name: prometheus
 networks:
   postgres:
     name: postgres
+  grafana:
+    name: grafana
+  url-shortener:
+    name: url-shortener
