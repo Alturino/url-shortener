@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"net/http"
 	"time"
 
@@ -26,17 +25,16 @@ func Logging(next http.Handler) http.Handler {
 				Str(log.KeyRequestURI, r.RequestURI).
 				Time(log.KeyRequestReceivedAt, startTime)
 		})
+		logger.Info().Msg("attached request value to logger")
+
+		logger.Info().Msg("attaching request value to context")
 		c := logger.WithContext(r.Context())
 		c = log.AttachHashcodeToContext(c, hashcode)
 		c = log.AttachRequestStartTimeToContext(c, startTime)
-		c = context.WithValue(c, log.KeyRequestHeader, r.Header)
-		c = context.WithValue(c, log.KeyRequestHost, r.Host)
-		c = context.WithValue(c, log.KeyRequestIp, r.RemoteAddr)
-		c = context.WithValue(c, log.KeyRequestMethod, r.Method)
-		c = context.WithValue(c, log.KeyRequestURI, r.RequestURI)
-		c = context.WithValue(c, log.KeyRequestReceivedAt, startTime)
 		r = r.WithContext(c)
+		logger.Info().Msg("attached request value to context")
 
+		logger.Info().Msg("next handler")
 		next.ServeHTTP(w, r)
 	})
 }

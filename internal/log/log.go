@@ -45,8 +45,8 @@ func AttachHashcodeToContext(c context.Context, h string) context.Context {
 
 type requestStartTime struct{}
 
-func RequestStartTimeFromContext(c context.Context) string {
-	return c.Value(requestStartTime{}).(string)
+func RequestStartTimeFromContext(c context.Context) time.Time {
+	return c.Value(requestStartTime{}).(time.Time)
 }
 
 func AttachRequestStartTimeToContext(c context.Context, time time.Time) context.Context {
@@ -82,7 +82,7 @@ func InitLogger() *zerolog.Logger {
 			NoColor:      false,
 			TimeLocation: time.UTC,
 		}
-		output := zerolog.MultiLevelWriter(consoleWriter, fileWriter)
+		output := zerolog.MultiLevelWriter(consoleWriter, fileWriter, os.Stderr)
 		log := zerolog.New(output).
 			Level(zerolog.TraceLevel).
 			With().

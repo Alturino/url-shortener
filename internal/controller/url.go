@@ -29,7 +29,7 @@ func AttachUrlController(mux *http.ServeMux, service *service.UrlService) {
 }
 
 func (u *UrlController) InsertUrl(w http.ResponseWriter, r *http.Request) {
-	requestStartTime := r.Context().Value(log.KeyRequestReceivedAt).(time.Time)
+	requestStartTime := log.RequestStartTimeFromContext(r.Context())
 
 	logger := zerolog.Ctx(r.Context())
 
@@ -254,7 +254,7 @@ func (u *UrlController) DeleteUrl(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u *UrlController) GetUrlByShortUrl(w http.ResponseWriter, r *http.Request) {
-	requestStartTime := r.Context().Value(log.KeyRequestReceivedAt).(time.Time)
+	requestStartTime := log.RequestStartTimeFromContext(r.Context())
 	logger := zerolog.Ctx(r.Context())
 	shortUrl := r.PathValue("shortUrl")
 	logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
