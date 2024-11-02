@@ -5,15 +5,19 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel"
 
 	"github.com/Alturino/url-shortener/internal/log"
 	"github.com/Alturino/url-shortener/internal/request"
 	"github.com/Alturino/url-shortener/internal/response"
 	"github.com/Alturino/url-shortener/internal/service"
 )
+
+const name = "github.com/Alturino/url-shortener"
+
+var tracer = otel.Tracer(name)
 
 type UrlController struct {
 	service *service.UrlService
@@ -29,7 +33,8 @@ func AttachUrlController(mux *http.ServeMux, service *service.UrlService) {
 }
 
 func (u *UrlController) InsertUrl(w http.ResponseWriter, r *http.Request) {
-	requestStartTime := log.RequestStartTimeFromContext(r.Context())
+	c, span := tracer.Start(r.Context(), "UrlController InsertUrl")
+	defer span.End()
 
 	logger := zerolog.Ctx(r.Context())
 
@@ -55,7 +60,7 @@ func (u *UrlController) InsertUrl(w http.ResponseWriter, r *http.Request) {
 			Str(log.KeyProcess, "InsertUrl").
 			Str(log.KeyUrl, req.Url)
 	})
-	c := logger.WithContext(r.Context())
+	c = logger.WithContext(r.Context())
 	logger.Info().Msg("decoded requestBody")
 
 	logger.Info().Msgf("validating url=%s", req.Url)
@@ -63,7 +68,6 @@ func (u *UrlController) InsertUrl(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Error().
 			Err(err).
-			Dur(log.KeyRequestProcessingTime, time.Since(requestStartTime)).
 			Msgf("failed validating url=%s with error=%s", req.Url, err.Error())
 		response.WriteJsonResponse(
 			c,
@@ -81,7 +85,6 @@ func (u *UrlController) InsertUrl(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logger.Error().
 			Err(err).
-			Dur(log.KeyRequestProcessingTime, time.Since(requestStartTime)).
 			Msgf("failed inserting url=%s with error=%s", req.Url, err.Error())
 		response.WriteJsonResponse(
 			c,
@@ -93,7 +96,6 @@ func (u *UrlController) InsertUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Info().
-		Dur(log.KeyRequestProcessingTime, time.Since(requestStartTime)).
 		Str(log.KeyShortUrl, inserted.ShortUrl).
 		Msgf("inserted url=%s shortUrl=%s", req.Url, inserted.ShortUrl)
 
@@ -111,21 +113,16 @@ func (u *UrlController) InsertUrl(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u *UrlController) UpdateUrl(w http.ResponseWriter, r *http.Request) {
-	requestStartTime := r.Context().Value(log.KeyRequestReceivedAt).(time.Time)
+	c, span := tracer.Start(r.Context(), "UrlController UpdateUrl")
+	defer span.End()
 
 	shortUrl := r.PathValue("shortUrl")
 	logger := zerolog.Ctx(r.Context())
 
-	req, decodingStartTime := request.UrlRequest{}, time.Now()
-	logger.Info().Time(log.KeyStartTime, decodingStartTime).Msg("decoding requestBody")
+	req := request.UrlRequest{}
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
-		logger.Error().Err(err).
-			Dur(log.KeyProcessingTime, time.Since(decodingStartTime)).
-			Dur(log.KeyRequestProcessingTime, time.Since(requestStartTime)).
-			Time(log.KeyStartTime, decodingStartTime).
-			Msg("failed decoding requestBody")
-
+		logger.Error().Err(err).Msg("failed decoding requestBody")
 		response.WriteJsonResponse(
 			r.Context(),
 			w,
@@ -141,21 +138,15 @@ func (u *UrlController) UpdateUrl(w http.ResponseWriter, r *http.Request) {
 			Str(log.KeyShortUrl, shortUrl).
 			Str(log.KeyNewUrl, req.Url)
 	})
-	c := logger.WithContext(r.Context())
+	c = logger.WithContext(r.Context())
 	logger.Info().
-		Dur(log.KeyProcessingTime, time.Since(decodingStartTime)).
-		Time(log.KeyStartTime, decodingStartTime).
 		Msg("decoded requestBody")
 
 	logger.Info().Msgf("validating url=%s", req.Url)
-	validatingUrlStartTime := time.Now()
 	validatedUrl, err := url.Parse(req.Url)
 	if err != nil {
 		logger.Error().
 			Err(err).
-			Dur(log.KeyProcessingTime, time.Since(validatingUrlStartTime)).
-			Dur(log.KeyRequestProcessingTime, time.Since(requestStartTime)).
-			Time(log.KeyStartTime, validatingUrlStartTime).
 			Msgf("failed validating url=%s with error=%s", req.Url, err.Error())
 		response.WriteJsonResponse(
 			c,
@@ -167,19 +158,13 @@ func (u *UrlController) UpdateUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Info().
-		Dur(log.KeyProcessingTime, time.Since(validatingUrlStartTime)).
-		Time(log.KeyStartTime, validatingUrlStartTime).
 		Msgf("validated url=%s", req.Url)
 
 	logger.Info().Msgf("updating url=%s", req.Url)
-	updateUrlStartTime := time.Now()
 	updated, err := u.service.UpdateUrl(c, *validatedUrl, shortUrl)
 	if err != nil {
 		logger.Error().
 			Err(err).
-			Dur(log.KeyProcessingTime, time.Since(updateUrlStartTime)).
-			Dur(log.KeyRequestProcessingTime, time.Since(requestStartTime)).
-			Time(log.KeyStartTime, updateUrlStartTime).
 			Msgf("failed updating url=%s with error=%s", req.Url, err.Error())
 		response.WriteJsonResponse(
 			c,
@@ -191,9 +176,6 @@ func (u *UrlController) UpdateUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Info().
-		Dur(log.KeyProcessingTime, time.Since(updateUrlStartTime)).
-		Dur(log.KeyRequestProcessingTime, time.Since(requestStartTime)).
-		Time(log.KeyStartTime, updateUrlStartTime).
 		Msgf("updated url=%s shortUrl=%s", req.Url, updated.ShortUrl)
 
 	response.WriteJsonResponse(
@@ -210,7 +192,9 @@ func (u *UrlController) UpdateUrl(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u *UrlController) DeleteUrl(w http.ResponseWriter, r *http.Request) {
-	requestStartTime := r.Context().Value(log.KeyRequestReceivedAt).(time.Time)
+	c, span := tracer.Start(r.Context(), "UrlController DeleteUrl")
+	defer span.End()
+
 	logger := zerolog.Ctx(r.Context())
 	shortUrl := r.PathValue("shortUrl")
 
@@ -218,14 +202,13 @@ func (u *UrlController) DeleteUrl(w http.ResponseWriter, r *http.Request) {
 		return c.Str(log.KeyProcess, "DeleteUrl").
 			Str(log.KeyShortUrl, shortUrl)
 	})
-	c := logger.WithContext(r.Context())
+	c = logger.WithContext(r.Context())
 
 	logger.Info().Msgf("deleting shortUrl=%s", shortUrl)
 	deleted, err := u.service.DeleteUrl(r.Context(), shortUrl)
 	if err != nil {
 		logger.Error().
 			Err(err).
-			Dur(log.KeyRequestProcessingTime, time.Since(requestStartTime)).
 			Msgf("failed deleting shortUrl=%s with error=%s", shortUrl, err.Error())
 		response.WriteJsonResponse(
 			c,
@@ -237,7 +220,6 @@ func (u *UrlController) DeleteUrl(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	logger.Info().
-		Dur(log.KeyRequestProcessingTime, time.Since(requestStartTime)).
 		Msgf("deleted url=%s shortUrl=%s", deleted.Url, deleted.ShortUrl)
 
 	response.WriteJsonResponse(
@@ -254,21 +236,23 @@ func (u *UrlController) DeleteUrl(w http.ResponseWriter, r *http.Request) {
 }
 
 func (u *UrlController) GetUrlByShortUrl(w http.ResponseWriter, r *http.Request) {
-	requestStartTime := log.RequestStartTimeFromContext(r.Context())
+	c, span := tracer.Start(r.Context(), "UrlController GetUrlByShortUrl")
+	defer span.End()
+
 	logger := zerolog.Ctx(r.Context())
+
 	shortUrl := r.PathValue("shortUrl")
 	logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
 		return c.Str(log.KeyProcess, "GetUrlByShortUrlDetail").
 			Str(log.KeyShortUrl, shortUrl)
 	})
-	c := logger.WithContext(r.Context())
+	c = logger.WithContext(r.Context())
 
 	logger.Info().Msgf("finding shortUrl=%s", shortUrl)
 	existed, err := u.service.GetUrlByShortUrl(c, shortUrl)
 	if err != nil {
 		logger.Error().
 			Err(err).
-			Dur(log.KeyRequestProcessingTime, time.Since(requestStartTime)).
 			Msgf("failed finding shortUrl=%s with error=%s", shortUrl, err.Error())
 		response.WriteJsonResponse(
 			c,
@@ -280,7 +264,6 @@ func (u *UrlController) GetUrlByShortUrl(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	logger.Info().
-		Dur(log.KeyRequestProcessingTime, time.Since(requestStartTime)).
 		Msgf("found url=%s shortUrl=%s", existed.Url, existed.ShortUrl)
 
 	response.WriteJsonResponse(
@@ -297,6 +280,9 @@ func (u *UrlController) GetUrlByShortUrl(w http.ResponseWriter, r *http.Request)
 }
 
 func (u *UrlController) GetUrlByShortUrlDetail(w http.ResponseWriter, r *http.Request) {
+	c, span := tracer.Start(r.Context(), "UrlController GetUrlByShortUrlDetail")
+	defer span.End()
+
 	logger := zerolog.Ctx(r.Context())
 	shortUrl := r.PathValue("shortUrl")
 
@@ -304,7 +290,7 @@ func (u *UrlController) GetUrlByShortUrlDetail(w http.ResponseWriter, r *http.Re
 		return c.Str(log.KeyProcess, "GetUrlByShortUrlDetail").
 			Str(log.KeyShortUrl, shortUrl)
 	})
-	c := logger.WithContext(r.Context())
+	c = logger.WithContext(r.Context())
 
 	logger.Info().Msgf("finding shortUrl=%s", shortUrl)
 	existed, err := u.service.GetUrlByShortUrlDetail(c, shortUrl)

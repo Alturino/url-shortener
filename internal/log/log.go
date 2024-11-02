@@ -2,6 +2,7 @@ package log
 
 import (
 	"context"
+	"io"
 	"os"
 	"sync"
 	"time"
@@ -11,26 +12,22 @@ import (
 )
 
 const (
-	KeyEndTime               = "endTime"
-	KeyHashcode              = "hashcode"
-	KeyUrlID                 = "urlId"
-	KeyUrl                   = "url"
-	KeyProcess               = "process"
-	KeyProcessingTime        = "processingTime"
-	KeyRequestBody           = "requestBody"
-	KeyRequestHeader         = "requestHeader"
-	KeyRequestHost           = "host"
-	KeyRequestIp             = "requesterIP"
-	KeyRequestMethod         = "requestMethod"
-	KeyRequestProcessedAt    = "requestProcessedAt"
-	KeyNewUrl                = "newUrl"
-	KeyOldUrl                = "oldUrl"
-	KeyRequestProcessingTime = "requestProcessingTime"
-	KeyRequestReceivedAt     = "requestReceivedAt"
-	KeyRequestURI            = "requestURI"
-	KeyRequestURL            = "requestURL"
-	KeyShortUrl              = "shortUrl"
-	KeyStartTime             = "startTime"
+	KeyHashcode           = "hashcode"
+	KeyUrlID              = "urlId"
+	KeyUrl                = "url"
+	KeyProcess            = "process"
+	KeyRequestBody        = "requestBody"
+	KeyRequestHeader      = "requestHeader"
+	KeyRequestHost        = "host"
+	KeyRequestIp          = "requesterIP"
+	KeyRequestMethod      = "requestMethod"
+	KeyRequestProcessedAt = "requestProcessedAt"
+	KeyNewUrl             = "newUrl"
+	KeyOldUrl             = "oldUrl"
+	KeyRequestURI         = "requestURI"
+	KeyRequestURL         = "requestURL"
+	KeyShortUrl           = "shortUrl"
+	KeyConfig             = "config"
 )
 
 type hashcode struct{}
@@ -43,16 +40,6 @@ func AttachHashcodeToContext(c context.Context, h string) context.Context {
 	return context.WithValue(c, hashcode{}, h)
 }
 
-type requestStartTime struct{}
-
-func RequestStartTimeFromContext(c context.Context) time.Time {
-	return c.Value(requestStartTime{}).(time.Time)
-}
-
-func AttachRequestStartTimeToContext(c context.Context, time time.Time) context.Context {
-	return context.WithValue(c, requestStartTime{}, time)
-}
-
 var (
 	once   sync.Once
 	logger *zerolog.Logger
@@ -60,14 +47,12 @@ var (
 
 func InitLogger() *zerolog.Logger {
 	once.Do(func() {
-		startTime := time.Now()
-
+		zerolog.DurationFieldUnit = time.Microsecond
 		zerolog.ErrorFieldName = "error"
 		zerolog.ErrorStackFieldName = "stack-trace"
 		zerolog.LevelFieldName = "level"
 		zerolog.MessageFieldName = "message"
 		zerolog.TimestampFieldName = "timestamp"
-		zerolog.DurationFieldUnit = time.Microsecond
 
 		fileWriter := &lumberjack.Logger{
 			Filename:   "url_shortener.jsonl",
@@ -76,13 +61,16 @@ func InitLogger() *zerolog.Logger {
 			MaxAge:     10,
 			Compress:   true,
 		}
-		consoleWriter := zerolog.ConsoleWriter{
-			Out:          os.Stdout,
-			TimeFormat:   time.RFC3339Nano,
-			NoColor:      false,
-			TimeLocation: time.UTC,
+		var logOutput io.Writer = os.Stdout
+		if os.Getenv("env") == "dev" {
+			logOutput = zerolog.ConsoleWriter{
+				Out:          os.Stdout,
+				TimeFormat:   time.RFC3339Nano,
+				NoColor:      false,
+				TimeLocation: time.UTC,
+			}
 		}
-		output := zerolog.MultiLevelWriter(consoleWriter, fileWriter, os.Stderr)
+		output := zerolog.MultiLevelWriter(logOutput, fileWriter)
 		log := zerolog.New(output).
 			Level(zerolog.TraceLevel).
 			With().
@@ -96,9 +84,6 @@ func InitLogger() *zerolog.Logger {
 
 		logger.Info().
 			Str(KeyProcess, "InitLogger").
-			Time(KeyStartTime, startTime).
-			Time(KeyEndTime, time.Now()).
-			Dur(KeyProcessingTime, time.Since(startTime)).
 			Msg("finish initiating logging")
 	})
 	return logger

@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"net/http"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -11,11 +10,11 @@ import (
 )
 
 func Logging(next http.Handler) http.Handler {
-	startTime := time.Now()
 	logger := log.InitLogger()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hashcode := uuid.NewString()
 
+		logger.Info().Msg("attaching request value to logger")
 		logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
 			return c.Str(log.KeyHashcode, hashcode).
 				Any(log.KeyRequestHeader, r.Header).
@@ -23,18 +22,17 @@ func Logging(next http.Handler) http.Handler {
 				Str(log.KeyRequestIp, r.RemoteAddr).
 				Str(log.KeyRequestMethod, r.Method).
 				Str(log.KeyRequestURI, r.RequestURI).
-				Time(log.KeyRequestReceivedAt, startTime)
+				Str(log.KeyRequestURL, r.URL.String())
 		})
 		logger.Info().Msg("attached request value to logger")
 
 		logger.Info().Msg("attaching request value to context")
-		c := logger.WithContext(r.Context())
-		c = log.AttachHashcodeToContext(c, hashcode)
-		c = log.AttachRequestStartTimeToContext(c, startTime)
-		r = r.WithContext(c)
+		c := log.AttachHashcodeToContext(r.Context(), hashcode)
+		c = logger.WithContext(c)
+		newR := r.WithContext(c)
 		logger.Info().Msg("attached request value to context")
 
 		logger.Info().Msg("next handler")
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, newR)
 	})
 }

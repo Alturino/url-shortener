@@ -1,10 +1,17 @@
 package main
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
 	"github.com/Alturino/url-shortener/internal/config"
 	"github.com/Alturino/url-shortener/internal/controller"
@@ -16,66 +23,119 @@ import (
 )
 
 func main() {
-	startTime := time.Now()
+	c := context.Background()
+
 	logger := log.InitLogger()
+	c, stop := signal.NotifyContext(c, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGINT)
+	defer func() {
+		logger.Info().
+			Str(log.KeyProcess, "main").
+			Msg("Received SIGINT or SIGKILL shutting down")
+		stop()
+		logger.Info().
+			Str(log.KeyProcess, "main").
+			Msg("shutdown")
+	}()
 
 	logger.Info().
 		Str(log.KeyProcess, "main").
-		Time(log.KeyStartTime, startTime).
-		Dur(log.KeyProcessingTime, time.Since(startTime)).
+		Msg("initializing otelsdk")
+	otelShutdown, err := log.InitOtelSdk(c)
+	if err != nil {
+		logger.Fatal().
+			Err(err).
+			Str(log.KeyProcess, "main").
+			Msgf("failed initialized otelsdk with error=%s", err.Error())
+	}
+	logger.Info().
+		Str(log.KeyProcess, "main").
+		Msg("initalized otelsdk")
+	defer func() {
+		logger.Info().Str(log.KeyProcess, "main").Msgf("shutting down otelsdk")
+		otelShutdown(c)
+		logger.Info().Str(log.KeyProcess, "main").Msgf("shutdown otelsdk")
+	}()
+
+	logger.Info().
+		Str(log.KeyProcess, "main").
 		Msg("initializing config")
 	appConfig := config.InitConfig("application", logger)
 	logger.Info().
 		Str(log.KeyProcess, "main").
-		Time(log.KeyStartTime, startTime).
-		Dur(log.KeyProcessingTime, time.Since(startTime)).
-		Any("config", appConfig).
+		Any(log.KeyConfig, appConfig).
 		Msg("initialized config")
 
 	logger.Info().
 		Str(log.KeyProcess, "main").
-		Time(log.KeyStartTime, startTime).
-		Dur(log.KeyProcessingTime, time.Since(startTime)).
-		Any("config", appConfig).
+		Any(log.KeyConfig, appConfig).
 		Msg("initializing postgresql client")
 	db := database.NewPostgreSQLClient(appConfig.MigrationPath, appConfig.Database, logger)
 	logger.Info().
 		Str(log.KeyProcess, "main").
-		Time(log.KeyStartTime, startTime).
-		Dur(log.KeyProcessingTime, time.Since(startTime)).
-		Any("config", appConfig).
+		Any(log.KeyConfig, appConfig).
 		Msg("initialized postgresql client")
 
 	logger.Info().
 		Str(log.KeyProcess, "main").
-		Time(log.KeyStartTime, startTime).
-		Dur(log.KeyProcessingTime, time.Since(startTime)).
-		Any("config", appConfig).
+		Any(log.KeyConfig, appConfig).
 		Msg("initializing urlService")
 	queries := repository.New(db)
 	encoder := base64.StdEncoding
 	urlService := service.NewUrlService(db, queries, encoder)
 	logger.Info().
 		Str(log.KeyProcess, "main").
-		Time(log.KeyStartTime, startTime).
-		Any("config", appConfig).
-		Dur(log.KeyProcessingTime, time.Since(startTime)).
+		Any(log.KeyConfig, appConfig).
 		Msg("initialized urlService")
 
 	mux := http.NewServeMux()
-	middlewares := middleware.CreateStack(middleware.Logging)
+	middlewares := middleware.CreateStack(middleware.Logging, middleware.Otlp)
+	otelhttpHandler := otelhttp.NewHandler(
+		middlewares(mux),
+		"url-shortener",
+	)
 	controller.AttachUrlController(mux, urlService)
 
 	server := http.Server{
-		Addr:    fmt.Sprintf("%s:%d", appConfig.Application.Host, appConfig.Application.Port),
-		Handler: middlewares(mux),
+		Addr:         fmt.Sprintf("%s:%d", appConfig.Application.Host, appConfig.Application.Port),
+		Handler:      otelhttpHandler,
+		BaseContext:  func(net.Listener) context.Context { return c },
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
 	}
 
-	logger.Info().
-		Str(log.KeyProcess, "main").
-		Time(log.KeyStartTime, startTime).
-		Any("config", appConfig).
-		Dur(log.KeyProcessingTime, time.Since(startTime)).
-		Msgf("listening to address=%s", server.Addr)
-	server.ListenAndServe()
+	srvErr := make(chan error, 1)
+	go func() {
+		logger.Info().
+			Str(log.KeyProcess, "main").
+			Any(log.KeyConfig, appConfig).
+			Msgf("listening to address=%s", server.Addr)
+		srvErr <- server.ListenAndServe()
+	}()
+
+	select {
+	case err := <-srvErr:
+		logger.Fatal().
+			Err(err).
+			Str(log.KeyProcess, "main").
+			Any(log.KeyConfig, appConfig).
+			Msgf("ListenAndServe with error=%s", err.Error())
+	case <-c.Done():
+		logger.Info().
+			Str(log.KeyProcess, "main").
+			Any(log.KeyConfig, appConfig).
+			Msg("shutting down server")
+		err := server.Shutdown(c)
+		if err != nil {
+			logger.Fatal().
+				Err(err).
+				Str(log.KeyProcess, "main").
+				Any(log.KeyConfig, appConfig).
+				Msgf("failed shutting down server with error=%s", err.Error())
+		}
+		stop()
+		logger.Info().
+			Str(log.KeyProcess, "main").
+			Any(log.KeyConfig, appConfig).
+			Msg("shutdown server")
+	}
 }

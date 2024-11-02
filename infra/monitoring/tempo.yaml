@@ -12,9 +12,7 @@ distributor:
     otlp:
       protocols:
         http:
-          endpoint: 0.0.0.0:55681
-        grpc:
-          endpoint: 0.0.0.0:4317
+          endpoint: 0.0.0.0:4318
 
 ingester:
   trace_idle_period: 10s

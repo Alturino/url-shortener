@@ -1,8 +1,6 @@
 package config
 
 import (
-	"time"
-
 	"github.com/rs/zerolog"
 	"github.com/spf13/viper"
 
@@ -33,19 +31,13 @@ type Database struct {
 }
 
 func InitConfig(filename string, logger *zerolog.Logger) Config {
-	startTime := time.Now()
-
 	config := Config{}
 	logger.Info().
 		Str(log.KeyProcess, "InitConfig").
-		Time(log.KeyStartTime, startTime).
 		Msg("starting InitConfig")
 	defer func() {
 		logger.Info().
 			Str(log.KeyProcess, "InitConfig").
-			Dur(log.KeyProcessingTime, time.Since(startTime)).
-			Time(log.KeyEndTime, time.Now()).
-			Time(log.KeyStartTime, startTime).
 			Interface("config", config).
 			Msg("finished InitConfig")
 	}()
@@ -57,18 +49,18 @@ func InitConfig(filename string, logger *zerolog.Logger) Config {
 
 	err := viper.ReadInConfig()
 	if err != nil {
-		logger.Err(err).
+		logger.Fatal().
+			Err(err).
 			Str("filename", filename).
 			Str(log.KeyProcess, "InitConfig").
-			Dur(log.KeyProcessingTime, time.Since(startTime)).
 			Msgf("error when reading config with error=%s", err.Error())
 	}
 
 	err = viper.Unmarshal(&config)
 	if err != nil {
-		logger.Err(err).
+		logger.Fatal().
+			Err(err).
 			Str(log.KeyProcess, "InitConfig").
-			Dur(log.KeyProcessingTime, time.Since(startTime)).
 			Msgf("error unmarshaling config with error=%s", err.Error())
 	}
 

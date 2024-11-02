@@ -21,19 +21,12 @@ func NewPostgreSQLClient(
 	dbConfig config.Database,
 	logger *zerolog.Logger,
 ) *sql.DB {
-	startTime := time.Now()
 	logger.Info().
 		Str(log.KeyProcess, "NewPostgreSQLClient").
-		Dur(log.KeyProcessingTime, time.Since(startTime)).
-		Time(log.KeyEndTime, time.Now()).
-		Time(log.KeyStartTime, startTime).
 		Msgf("initiate connection to database")
 	defer func() {
 		logger.Info().
 			Str(log.KeyProcess, "NewPostgreSQLClient").
-			Dur(log.KeyProcessingTime, time.Since(startTime)).
-			Time(log.KeyEndTime, time.Now()).
-			Time(log.KeyStartTime, startTime).
 			Msgf("successed connecting to database")
 	}()
 	postgresUrl := fmt.Sprintf(
@@ -50,9 +43,6 @@ func NewPostgreSQLClient(
 		logger.Fatal().
 			Err(err).
 			Str(log.KeyProcess, "NewPostgreSQLClient").
-			Dur(log.KeyProcessingTime, time.Since(startTime)).
-			Time(log.KeyEndTime, time.Now()).
-			Time(log.KeyStartTime, startTime).
 			Msgf("failed opening connection to postgres with error=%s", err.Error())
 	}
 
@@ -61,9 +51,6 @@ func NewPostgreSQLClient(
 		logger.Fatal().
 			Err(err).
 			Str(log.KeyProcess, "NewPostgreSQLClient").
-			Dur(log.KeyProcessingTime, time.Since(startTime)).
-			Time(log.KeyEndTime, time.Now()).
-			Time(log.KeyStartTime, startTime).
 			Msgf("failed pinging connection to postgres with error=%s", err.Error())
 	}
 
@@ -72,9 +59,6 @@ func NewPostgreSQLClient(
 		logger.Fatal().
 			Err(err).
 			Str(log.KeyProcess, "NewPostgreSQLClient").
-			Dur(log.KeyProcessingTime, time.Since(startTime)).
-			Time(log.KeyEndTime, time.Now()).
-			Time(log.KeyStartTime, startTime).
 			Msgf("failed creating postgres driver to do migration with error=%s", err.Error())
 	}
 
@@ -83,9 +67,6 @@ func NewPostgreSQLClient(
 		logger.Fatal().
 			Err(err).
 			Str(log.KeyProcess, "NewPostgreSQLClient").
-			Dur(log.KeyProcessingTime, time.Since(startTime)).
-			Time(log.KeyEndTime, time.Now()).
-			Time(log.KeyStartTime, startTime).
 			Msgf("failed migration postgres with error=%s", err.Error())
 	}
 
@@ -94,9 +75,6 @@ func NewPostgreSQLClient(
 		logger.Fatal().
 			Err(err).
 			Str(log.KeyProcess, "NewPostgreSQLClient").
-			Dur(log.KeyProcessingTime, time.Since(startTime)).
-			Time(log.KeyEndTime, time.Now()).
-			Time(log.KeyStartTime, startTime).
 			Msgf("failed migration down postgres with error=%s", err.Error())
 	}
 
@@ -105,9 +83,6 @@ func NewPostgreSQLClient(
 		logger.Fatal().
 			Err(err).
 			Str(log.KeyProcess, "NewPostgreSQLClient").
-			Dur(log.KeyProcessingTime, time.Since(startTime)).
-			Time(log.KeyEndTime, time.Now()).
-			Time(log.KeyStartTime, startTime).
 			Msgf("failed migration up postgres with error=%s", err.Error())
 	}
 

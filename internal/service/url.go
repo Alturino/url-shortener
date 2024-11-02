@@ -8,10 +8,15 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+	"go.opentelemetry.io/otel"
 
 	"github.com/Alturino/url-shortener/internal/log"
 	"github.com/Alturino/url-shortener/internal/repository"
 )
+
+const name = "github.com/Alturino/url-shortener"
+
+var tracer = otel.Tracer(name)
 
 type UrlService struct {
 	db      *sql.DB
@@ -31,6 +36,9 @@ func (s *UrlService) InsertUrl(
 	c context.Context,
 	url url.URL,
 ) (repository.Url, error) {
+	c, span := tracer.Start(c, "UrlService InsertUrl")
+	defer span.End()
+
 	logger := zerolog.Ctx(c)
 
 	logger.Info().Msg("generating uuid")
@@ -73,6 +81,9 @@ func (s *UrlService) UpdateUrl(
 	url url.URL,
 	shortUrl string,
 ) (repository.Url, error) {
+	c, span := tracer.Start(c, "UrlService UpdateUrl")
+	defer span.End()
+
 	logger := zerolog.Ctx(c)
 
 	logger.Info().Msgf("finding shortUrl=%s", shortUrl)
@@ -111,6 +122,9 @@ func (s *UrlService) DeleteUrl(
 	c context.Context,
 	shortUrl string,
 ) (repository.Url, error) {
+	c, span := tracer.Start(c, "UrlService DeleteUrl")
+	defer span.End()
+
 	logger := zerolog.Ctx(c)
 
 	logger.Info().Msgf("deleting shortUrl=%s", shortUrl)
@@ -130,6 +144,9 @@ func (s *UrlService) GetUrlByShortUrl(
 	c context.Context,
 	shortUrl string,
 ) (repository.Url, error) {
+	c, span := tracer.Start(c, "UrlService GetUrlByShortUrl")
+	defer span.End()
+
 	logger := zerolog.Ctx(c)
 
 	logger.Info().Msg("initializing transaction")
@@ -199,6 +216,9 @@ func (s *UrlService) GetUrlByShortUrlDetail(
 	c context.Context,
 	shortUrl string,
 ) (repository.Url, error) {
+	c, span := tracer.Start(c, "UrlService GetUrlByShortUrlDetail")
+	defer span.End()
+
 	logger := zerolog.Ctx(c)
 
 	logger.Info().Msgf("finding shortUrl=%s", shortUrl)

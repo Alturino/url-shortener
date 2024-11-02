@@ -13,6 +13,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      prometheus:
+        condition: service_started
     networks:
       - postgres
       - grafana
@@ -52,7 +54,6 @@ services:
     depends_on:
       - postgres
       - url-shortener
-      - promtail
       - prometheus
     environment:
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
@@ -75,21 +76,8 @@ services:
     networks:
       - grafana
     env_file: .env
-  promtail:
-    container_name: promtail
-    image: grafana/promtail:3.1.2
-    volumes:
-      - ./infra/monitoring/promtail.yaml:/etc/promtail/promtail.yml
-      - promtail:/var/log
-      - /var/run/docker.sock:/var/run/docker.sock
-    command:
-      ["-config.file=/etc/promtail/promtail.yml", "-config.expand-env=true"]
-    depends_on:
-      - loki
-    networks:
-      - grafana
   prometheus:
-    image: prom/prometheus:v2.51.1
+    image: prom/prometheus:v2.55.1
     container_name: prometheus
     restart: unless-stopped
     command:
@@ -126,22 +114,37 @@ services:
       - grafana
   otel-collector:
     container_name: otel-collector
-    image: otel/opentelemetry-collector:0.95.0
-    command: ["--config=/etc/otel-collector-config.yml"]
+    image: otel/opentelemetry-collector-contrib:0.112.0
+    command: ["--config=/etc/otel-collector.yaml"]
     volumes:
-      - ./infra/monitoring/otel-collector.yaml:/etc/otel-collector-config.yml
+      - ./infra/monitoring/otel-collector.yaml:/etc/otel-collector.yaml
+    expose:
+      - 4317
+      - 4318
     ports:
-      - "8888:8888"
-      - "8889:8889"
-      - "13133:13133"
-      - "4317:4317"
+      - "1888:1888" # pprof extension
+      - "8888:8888" # Prometheus metrics exposed by the collector
+      - "8889:8889" # Prometheus exporter metrics
+      - "13133:13133" # health_check extension
+    networks:
+      - grafana
+    depends_on:
+      - jaeger
+  jaeger:
+    container_name: jaeger
+    image: jaegertracing/all-in-one:1.62.0
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    ports:
+      - 16686:16686
+    expose:
+      - 4317
+      - 4318
     networks:
       - grafana
 volumes:
   postgres:
     name: postgres
-  promtail:
-    name: promtail
   prometheus:
     name: prometheus
 networks:
