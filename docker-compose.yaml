@@ -3,7 +3,7 @@ services:
     container_name: url-shortener
     build: .
     healthcheck:
-      test: ["CMD", "curl", "url-shortener:8080"]
+      test: ["CMD", "curl", "url-shortener:${APPLICATION_PORT}"]
       interval: 5s
       timeout: 10s
       retries: 5
@@ -25,7 +25,7 @@ services:
         loki-retries: 5
         loki-batch-size: 1000
     ports:
-      - ${APPLICATION_PORT}:${APPLICATION_PORT}
+      - 8080:${APPLICATION_PORT}
   postgres:
     container_name: postgres
     image: postgres:16.1-alpine3.19
@@ -48,19 +48,19 @@ services:
     container_name: grafana
     image: grafana/grafana:11.3.0-ubuntu
     volumes:
-      - ./infra/monitoring/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/default.yaml
-      - ./infra/monitoring/grafana-dashboards.yaml:/etc/grafana/provisioning/dashboards/default.yaml
-      - ./infra/monitoring/node-exporter.json:/var/lib/grafana/dashboards/node-exporter.json
+      - ./observability/grafana/provisioning/datasources.yaml:/etc/grafana/provisioning/datasources/default.yaml
+      - ./observability/grafana/provisioning/dashboards.yaml:/etc/grafana/provisioning/dashboards/default.yaml
+      - ./observability/grafana/dashboards/node-exporter.json:/var/lib/grafana/dashboards/node-exporter.json
     depends_on:
-      - postgres
       - url-shortener
       - prometheus
+      - loki
     environment:
       - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
     ports:
-      - "3001:3000"
+      - "3000:3000"
     networks:
       - grafana
       - postgres
@@ -72,7 +72,7 @@ services:
       - 3100:3100
     command: ["-config.file=/etc/loki/loki.yaml", "-config.expand-env=true"]
     volumes:
-      - ./infra/monitoring/loki.yaml:/etc/loki/loki.yaml
+      - ./observability/loki.yaml:/etc/loki/loki.yaml
     networks:
       - grafana
     env_file: .env
@@ -89,10 +89,12 @@ services:
       - --web.enable-lifecycle
       - --web.enable-remote-write-receiver
     volumes:
-      - ./infra/monitoring/prometheus.yaml:/etc/prometheus.yaml
+      - ./observability/prometheus.yaml:/etc/prometheus.yaml
       - prometheus:/prometheus
     ports:
       - "9090:9090"
+    depends_on:
+      - node-exporter
     networks:
       - grafana
   node-exporter:
@@ -117,7 +119,7 @@ services:
     image: otel/opentelemetry-collector-contrib:0.112.0
     command: ["--config=/etc/otel-collector.yaml"]
     volumes:
-      - ./infra/monitoring/otel-collector.yaml:/etc/otel-collector.yaml
+      - ./observability/otel-collector.yaml:/etc/otel-collector.yaml
     expose:
       - 4317
       - 4318

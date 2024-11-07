@@ -11,6 +11,8 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 	"github.com/rs/zerolog"
+	"github.com/uptrace/opentelemetry-go-extra/otelsql"
+	semconv "go.opentelemetry.io/otel/semconv/v1.26.0"
 
 	"github.com/Alturino/url-shortener/internal/config"
 	"github.com/Alturino/url-shortener/internal/log"
@@ -38,7 +40,12 @@ func NewPostgreSQLClient(
 		dbConfig.DbName,
 	)
 
-	db, err := sql.Open("postgres", postgresUrl)
+	db, err := otelsql.Open(
+		"postgres",
+		postgresUrl,
+		otelsql.WithAttributes(semconv.DBSystemPostgreSQL),
+		otelsql.WithDBName(dbConfig.DbName),
+	)
 	if err != nil {
 		logger.Fatal().
 			Err(err).

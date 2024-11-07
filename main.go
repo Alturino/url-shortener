@@ -26,6 +26,8 @@ func main() {
 	c := context.Background()
 
 	logger := log.InitLogger()
+	c = logger.WithContext(c)
+
 	c, stop := signal.NotifyContext(c, os.Interrupt, os.Kill, syscall.SIGTERM, syscall.SIGINT)
 	defer func() {
 		logger.Info().
@@ -52,7 +54,13 @@ func main() {
 		Msg("initalized otelsdk")
 	defer func() {
 		logger.Info().Str(log.KeyProcess, "main").Msgf("shutting down otelsdk")
-		otelShutdown(c)
+		err := otelShutdown(c)
+		if err != nil {
+			logger.Fatal().
+				Err(err).
+				Str(log.KeyProcess, "main").
+				Msgf("failed shutdown otelsdk with error=%s", err.Error())
+		}
 		logger.Info().Str(log.KeyProcess, "main").Msgf("shutdown otelsdk")
 	}()
 

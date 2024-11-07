@@ -40,7 +40,7 @@ func newTracerProvider(c context.Context) (*trace.TracerProvider, error) {
 		return nil, err
 	}
 	traceProvider := trace.NewTracerProvider(
-		trace.WithBatcher(traceExporter, trace.WithBatchTimeout(20*time.Second)),
+		trace.WithBatcher(traceExporter, trace.WithBatchTimeout(5*time.Second)),
 	)
 	return traceProvider, nil
 }
@@ -60,7 +60,7 @@ func newMeterProvider(c context.Context) (*metric.MeterProvider, error) {
 	}
 	meterProvider := metric.NewMeterProvider(
 		metric.WithReader(
-			metric.NewPeriodicReader(metricExporter, metric.WithInterval(3*time.Second)),
+			metric.NewPeriodicReader(metricExporter, metric.WithInterval(5*time.Second)),
 		),
 	)
 	return meterProvider, nil

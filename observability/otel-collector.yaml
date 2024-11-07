@@ -5,6 +5,14 @@ receivers:
         endpoint: 0.0.0.0:4318
       grpc:
         endpoint: 0.0.0.0:4317
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: "otel-collector"
+          scrape_interval: 15s
+          static_configs:
+            - targets: ["0.0.0.0:8888"]
+            - targets: ["0.0.0.0:8889"]
 
 exporters:
   debug:
@@ -13,8 +21,10 @@ exporters:
     endpoint: jaeger:4317
     tls:
       insecure: true
-  prometheus:
-    endpoint: "0.0.0.0:8889"
+  prometheusremotewrite:
+    endpoint: prometheus:9090
+    tls:
+      insecure: true
 
 processors:
   batch:
@@ -31,6 +41,6 @@ service:
       processors: [batch]
       exporters: [otlp/jaeger, debug]
     metrics:
-      receivers: [otlp]
+      receivers: [otlp, prometheus]
       processors: [batch]
-      exporters: [prometheus, debug]
+      exporters: [prometheusremotewrite, debug]

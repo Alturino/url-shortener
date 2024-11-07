@@ -10,11 +10,10 @@ import (
 )
 
 func Logging(next http.Handler) http.Handler {
-	logger := log.InitLogger()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hashcode := uuid.NewString()
 
-		logger.Info().Msg("attaching request value to logger")
+		logger := zerolog.Ctx(r.Context())
 		logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
 			return c.Str(log.KeyHashcode, hashcode).
 				Any(log.KeyRequestHeader, r.Header).
