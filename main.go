@@ -13,6 +13,7 @@ import (
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
+	"github.com/Alturino/url-shortener/internal/cache"
 	"github.com/Alturino/url-shortener/internal/config"
 	"github.com/Alturino/url-shortener/internal/controller"
 	"github.com/Alturino/url-shortener/internal/database"
@@ -86,10 +87,20 @@ func main() {
 	logger.Info().
 		Str(log.KeyProcess, "main").
 		Any(log.KeyConfig, appConfig).
+		Msg("initializing redis client")
+	redis := cache.NewCacheClient(c, appConfig.Cache)
+	logger.Info().
+		Str(log.KeyProcess, "main").
+		Any(log.KeyConfig, appConfig).
+		Msg("initialized redis client")
+
+	logger.Info().
+		Str(log.KeyProcess, "main").
+		Any(log.KeyConfig, appConfig).
 		Msg("initializing urlService")
 	queries := repository.New(db)
 	encoder := base64.StdEncoding
-	urlService := service.NewUrlService(db, queries, encoder)
+	urlService := service.NewUrlService(redis, db, encoder, queries)
 	logger.Info().
 		Str(log.KeyProcess, "main").
 		Any(log.KeyConfig, appConfig).

@@ -12,6 +12,11 @@ db:
   migration_path: file://migrations/
   max_connections: 10
   min_connections: 5
+cache:
+  host: redis
+  port: 6379
+  username: redis
+  password: redis
 otel:
   host: otel-collector
   port: 8888

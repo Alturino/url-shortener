@@ -10,12 +10,20 @@ import (
 type Config struct {
 	Env         string `mapstructure:"env"`
 	Database    `mapstructure:"db"`
+	Cache       `mapstructure:"cache"`
 	Application `mapstructure:"application"`
 }
 
 type Application struct {
 	Host string `mapstructure:"host"`
 	Port int    `mapstructure:"port"`
+}
+
+type Cache struct {
+	Host     string `mapstructure:"host"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	Port     int    `mapstructure:"port"`
 }
 
 type Database struct {

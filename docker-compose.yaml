@@ -15,9 +15,12 @@ services:
         condition: service_healthy
       prometheus:
         condition: service_started
+      redis:
+        condition: service_healthy
     networks:
-      - postgres
       - grafana
+      - postgres
+      - redis
     logging:
       driver: loki
       options:
@@ -36,14 +39,33 @@ services:
       - ${POSTGRES_PORT}:${POSTGRES_PORT}
     networks:
       - postgres
-      - grafana
     healthcheck:
       test:
         ["CMD", "pg_isready", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}"]
       interval: 5s
-      timeout: 2m
+      timeout: 5s
       retries: 10
-      start_period: 40s
+      start_period: 3s
+  redis:
+    container_name: redis
+    image: redis/redis-stack:7.2.0-v13
+    restart: always
+    environment:
+      REDIS_ARGS: "--user redis on +@all ~* >redis  --bind 0.0.0.0 --maxmemory-policy allkeys-lru"
+    healthcheck:
+      test: ["CMD", "redis-cli", "PING"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 3s
+    networks:
+      - redis
+    volumes:
+      - redis:/data
+    env_file:
+      - .env
+    ports:
+      - ${REDIS_PORT}:${REDIS_PORT}
   grafana:
     container_name: grafana
     image: grafana/grafana:11.3.0-ubuntu
@@ -60,7 +82,7 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=true
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
     ports:
-      - "3000:3000"
+      - 3000:3000
     networks:
       - grafana
       - postgres
@@ -149,6 +171,8 @@ volumes:
     name: postgres
   prometheus:
     name: prometheus
+  redis:
+    name: redis
 networks:
   postgres:
     name: postgres
@@ -156,3 +180,5 @@ networks:
     name: grafana
   url-shortener:
     name: url-shortener
+  redis:
+    name: redis

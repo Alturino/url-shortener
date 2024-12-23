@@ -36,7 +36,7 @@ func (u *UrlController) InsertUrl(w http.ResponseWriter, r *http.Request) {
 	c, span := tracer.Start(r.Context(), "UrlController InsertUrl")
 	defer span.End()
 
-	logger := zerolog.Ctx(r.Context())
+	logger := zerolog.Ctx(c).With().Logger()
 
 	logger.Info().Msg("decoding requestBody")
 	req := request.UrlRequest{}
@@ -117,14 +117,17 @@ func (u *UrlController) UpdateUrl(w http.ResponseWriter, r *http.Request) {
 	defer span.End()
 
 	shortUrl := r.PathValue("shortUrl")
-	logger := zerolog.Ctx(r.Context())
+	logger := zerolog.Ctx(c).
+		With().
+		Str(log.KeyProcess, "UrlController UpdateUrl").
+		Logger()
 
 	req := request.UrlRequest{}
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
 		logger.Error().Err(err).Msg("failed decoding requestBody")
 		response.WriteJsonResponse(
-			r.Context(),
+			c,
 			w,
 			map[string]string{},
 			map[string]interface{}{},
@@ -132,15 +135,12 @@ func (u *UrlController) UpdateUrl(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
-		return c.Str(log.KeyProcess, "UpdateUrl").
-			Any(log.KeyRequestBody, req).
-			Str(log.KeyShortUrl, shortUrl).
-			Str(log.KeyNewUrl, req.Url)
-	})
-	c = logger.WithContext(r.Context())
-	logger.Info().
-		Msg("decoded requestBody")
+	logger = logger.With().
+		Any(log.KeyRequestBody, req).
+		Str(log.KeyShortUrl, shortUrl).
+		Str(log.KeyNewUrl, req.Url).
+		Logger()
+	logger.Info().Msg("decoded requestBody")
 
 	logger.Info().Msgf("validating url=%s", req.Url)
 	validatedUrl, err := url.Parse(req.Url)
@@ -157,10 +157,10 @@ func (u *UrlController) UpdateUrl(w http.ResponseWriter, r *http.Request) {
 		)
 		return
 	}
-	logger.Info().
-		Msgf("validated url=%s", req.Url)
+	logger.Info().Msgf("validated url=%s", req.Url)
 
 	logger.Info().Msgf("updating url=%s", req.Url)
+	c = logger.WithContext(c)
 	updated, err := u.service.UpdateUrl(c, *validatedUrl, shortUrl)
 	if err != nil {
 		logger.Error().
@@ -195,14 +195,13 @@ func (u *UrlController) DeleteUrl(w http.ResponseWriter, r *http.Request) {
 	c, span := tracer.Start(r.Context(), "UrlController DeleteUrl")
 	defer span.End()
 
-	logger := zerolog.Ctx(r.Context())
 	shortUrl := r.PathValue("shortUrl")
 
-	logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
-		return c.Str(log.KeyProcess, "DeleteUrl").
-			Str(log.KeyShortUrl, shortUrl)
-	})
-	c = logger.WithContext(r.Context())
+	logger := zerolog.Ctx(c).
+		With().
+		Str(log.KeyProcess, "DeleteUrl").
+		Str(log.KeyShortUrl, shortUrl).
+		Logger()
 
 	logger.Info().Msgf("deleting shortUrl=%s", shortUrl)
 	deleted, err := u.service.DeleteUrl(r.Context(), shortUrl)
@@ -239,16 +238,15 @@ func (u *UrlController) GetUrlByShortUrl(w http.ResponseWriter, r *http.Request)
 	c, span := tracer.Start(r.Context(), "UrlController GetUrlByShortUrl")
 	defer span.End()
 
-	logger := zerolog.Ctx(r.Context())
-
 	shortUrl := r.PathValue("shortUrl")
-	logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
-		return c.Str(log.KeyProcess, "GetUrlByShortUrlDetail").
-			Str(log.KeyShortUrl, shortUrl)
-	})
-	c = logger.WithContext(r.Context())
+	logger := zerolog.Ctx(c).
+		With().
+		Str(log.KeyProcess, "GetUrlByShortUrlDetail").
+		Str(log.KeyShortUrl, shortUrl).
+		Logger()
 
 	logger.Info().Msgf("finding shortUrl=%s", shortUrl)
+	c = logger.WithContext(c)
 	existed, err := u.service.GetUrlByShortUrl(c, shortUrl)
 	if err != nil {
 		logger.Error().
@@ -277,22 +275,23 @@ func (u *UrlController) GetUrlByShortUrl(w http.ResponseWriter, r *http.Request)
 		},
 		http.StatusOK,
 	)
+	http.Redirect(w, r, existed.Url, http.StatusTemporaryRedirect)
 }
 
 func (u *UrlController) GetUrlByShortUrlDetail(w http.ResponseWriter, r *http.Request) {
 	c, span := tracer.Start(r.Context(), "UrlController GetUrlByShortUrlDetail")
 	defer span.End()
 
-	logger := zerolog.Ctx(r.Context())
 	shortUrl := r.PathValue("shortUrl")
 
-	logger.UpdateContext(func(c zerolog.Context) zerolog.Context {
-		return c.Str(log.KeyProcess, "GetUrlByShortUrlDetail").
-			Str(log.KeyShortUrl, shortUrl)
-	})
-	c = logger.WithContext(r.Context())
+	logger := zerolog.Ctx(c).
+		With().
+		Str(log.KeyProcess, "GetUrlByShortUrlDetail").
+		Str(log.KeyShortUrl, shortUrl).
+		Logger()
 
 	logger.Info().Msgf("finding shortUrl=%s", shortUrl)
+	c = logger.WithContext(c)
 	existed, err := u.service.GetUrlByShortUrlDetail(c, shortUrl)
 	if err != nil {
 		logger.Error().
