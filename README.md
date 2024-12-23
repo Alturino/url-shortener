@@ -25,3 +25,7 @@
 -   rs/zerolog
 -   spf13/viper
 -   sqlc-dev/sqlc
+
+## Architecture
+
+-   Caching strategy: Write-through cache
